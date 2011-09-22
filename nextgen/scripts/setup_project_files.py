@@ -29,8 +29,8 @@ def main(run_info_yaml, fastq_dir, project_dir):
     fastq_dir = os.path.normpath(fastq_dir)
     project_dir = os.path.abspath(project_dir)
     dirs  = dict(work_dir = project_dir)
-    if os.path.exists( os.path.join(project_dir, "data", fastq_dir)):
-        dirs.update(fastq_dir = os.path.join(project_dir, "data", fastq_dir))
+    if os.path.exists( os.path.join(project_dir, "data", "nobackup", fastq_dir)):
+        dirs.update(fastq_dir = os.path.join(project_dir, "data", "nobackup", fastq_dir))
     else:
         dirs.update(fastq_dir = os.path.abspath(fastq_dir))
 

@@ -21,7 +21,7 @@ sample delivery directory.
 Options:
 
   -a, --flowcell_alias=<flowcell alias>  By default, samples are delivered to 
-                                         project_output_directory/data/FLOWCELL_ID
+                                         project_output_directory/data/nobackup/FLOWCELL_ID
                                          This option changes FLOWCELL_ID
   -I, --only_install_run_info            Don't deliver samples, only install pruned
                                          run_info file
@@ -68,7 +68,7 @@ def main(run_info_yaml, yaml_project_desc, fc_dir, project_outdir,
     fc_name, fc_date = get_flowcell_id(run_info, dirs['fc_dir'])
     config.update( fc_name = fc_name, fc_date = fc_date)
     config.update( fc_alias = "%s_%s" % (fc_date, fc_name) if not fc_alias else fc_alias)
-    dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], "data", config['fc_alias'] ))
+    dirs.update(fc_delivery_dir = os.path.join(dirs['project_dir'], "nobackup", "data", config['fc_alias'] ))
 
     with log_handler.applicationbound():
         config = _make_delivery_directory(dirs, config)

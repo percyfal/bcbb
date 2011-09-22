@@ -153,6 +153,8 @@ options(
         ),
     # useful option for facilitating rsync
     #rsync = Bunch(
+    #    program = "rsync",
+    #    opts = "-av",
     #    host = "",
     #    user = "",
     #    src = "",
