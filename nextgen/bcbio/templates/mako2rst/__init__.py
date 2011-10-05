@@ -2,9 +2,37 @@
 Mako templates for rst output
 """
 
+import os
 import sys
+import glob
+import json
 from texttable import *
 
+def teqc_config(indir, samples):
+    """Simple teqc configuration if no run_info.yaml file"""
+    jdata = {}
+    fc = os.path.basename(indir)
+    for s in samples:
+        jdata[fc] = {}
+        infiles = glob.glob(os.path.join(indir, "*.json"))
+        for f in infiles:
+            fp = open(f)
+            jd = json.load(fp)
+            fp.close()
+            jdata[fc][os.path.basename(f)] = jd
+    tdata = {}
+    png = {'chrom-barplot': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-chrom-barplot.png"))],
+           'coverage-hist': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-coverage-hist.png"))],
+           'coverage-targetlength-plot-avgCoverage': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-coverage-targetlength-plot-avgCoverage.png"))],
+           'coverage-targetlength-plot-nReads': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-coverage-targetlength-plot-nReads.png"))],
+           'coverage-uniformity': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-coverage-uniformity.png"))],
+           'duplicates-barplot': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-duplicates-barplot.png"))],
+           'insert-size-hist': [os.path.relpath(x) for x in glob.glob(os.path.join(indir, "*-insert-size-hist.png"))]
+           }
+    tdata[fc] = png
+    return [jdata, tdata]
+        
+    
 def program_info(proj_conf):
     d = proj_conf['program']
     tab = Texttable()
@@ -107,7 +135,7 @@ def teqc_json(d):
 
     return "\n\n".join(res)
 
-def teqc_graphics(d, which="chrom-barplot", width="65%"):
+def teqc_graphics(d, which="chrom-barplot", width="65%", as.table=True, columns=2):
     res = []
     if d==None:
         return
