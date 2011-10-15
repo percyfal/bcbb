@@ -204,7 +204,7 @@ class ReseqFrag(SOLiDProject):
     """
     file_base    - base prefix for csfasta, qual files (should be just sample name?)
     """
-    def __init__(self, runname, samplename, reference, basedir, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
+    def __init__(self, runname, samplename, reference, cmap, basedir, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
         _key_map = self._key_map.update({'annotation_gtf_file':'annotation.gtf.file', 'annotation_dbsnp_file_snpchrpos':'annotation.dbsnp.file.snpchrpos', 'annotation_dbsnp_file_snpcontigloc':'annotation.dbsnp.file.snpcontigloc', 'annotation_dbsnp_file_snpcontiglocusid':'annotation.dbsnp.file.snpcontiglocusid'})
         self.config.update({
@@ -214,8 +214,9 @@ class ReseqFrag(SOLiDProject):
             'annotation_dbsnp_file_snpcontiglocusid':annotation_dbsnp_file_snpcontiglocusid
             })
         self.d.update( {
-            'annotation_human_hg18' : annotation_human_hg18,
-            'file_base':samplename
+                'cmap' : cmap,
+                'annotation_human_hg18' : annotation_human_hg18,
+                'file_base':samplename
             } )
         self.d.update(self._set_d())
         self.primersets['F3'] = Primer("F3", read_length, self)
