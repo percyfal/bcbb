@@ -3,7 +3,7 @@ import sys
 import glob
 import shutil
 from string import Template
-__version__ = '0.2.3'
+__version__ = '0.2.4'
 
 TEMPLATEDIR= os.path.join(os.path.dirname(__file__), "templates")
 
@@ -31,7 +31,9 @@ def _clean_up(d, key):
         if not o.endswith(".ini"):
             p = os.path.join(d[key], o)
             if os.path.isdir(p):
-                shutil.rmtree(p)
+                ans = raw_input("Going to remove directory " + p + "; Proceed [y/N]? ")
+                if ans == "y":
+                    shutil.rmtree(p)
             else:
                 os.remove(p)
             paths.append(p)
@@ -201,8 +203,14 @@ class TargetedFrag(SOLiDProject):
             apf.write("\n".join(ap))
 
 class ReseqFrag(SOLiDProject):
-    """
-    file_base    - base prefix for csfasta, qual files (should be just sample name?)
+    """Template class for ReseqFrag pipeline
+    Required input:
+
+      runname      - name of instrument run
+      samplename   - name of sample
+      reference    - full path to reference file to which mapping is done
+      cmap         - mapping to reference chromosome files 
+      basedir      - sample-based directory where analysis on particular sample takes place
     """
     def __init__(self, runname, samplename, reference, cmap, basedir, annotation_gtf_file=None, read_length=50, annotation_human_hg18=0, annotation_dbsnp_file_snpchrpos=None, annotation_dbsnp_file_snpcontigloc=None, annotation_dbsnp_file_snpcontiglocusid=None):
         SOLiDProject.__init__(self, runname, samplename, reference, basedir)
@@ -230,7 +238,7 @@ class ReseqFrag(SOLiDProject):
         if saet:
             self.d.update({'saet_fixdir' : "$${output.dir}/fixed"})
         else:
-            self.d.update({'saet_fixdir' : self.primersets['F3'].dirs['reads']})
+            self.d.update({'saet_fixdir' : "$${output.dir}/$primer/s_mapping"})
         analysis_plan = os.path.join(self.basedirs['base'], 'analysis.plan')
         ap = []
         self.global_ini()
