@@ -8,10 +8,17 @@ system architecture.
 
 Usage:
   nextgen_analysis_server.py <post_process.yaml>
+   [--queues=list,of,queues: can specify specific queues to listen for jobs
+                             on. No argument runs the default queue, which
+                             handles processing alignments. 'toplevel' handles
+                             managing the full work process.]
+   [--tasks=task.module.import: Specify the module of tasks to make available.
+                                Defaults to bcbio.distributed.tasks if not specified.]
 """
 import os
 import sys
 import subprocess
+import optparse
 
 import yaml
 
@@ -19,17 +26,33 @@ from bcbio import utils
 from bcbio.distributed.messaging import create_celeryconfig
 from bcbio.pipeline.config_loader import load_config
 
-def main(config_file):
-    task_module = "bcbio.distributed.tasks"
-    config = config_loader(config_file)
+def main(config_file, queues=None, task_module=None):
+    if task_module is None:
+        task_module = "bcbio.distributed.tasks"
+    config = load_config(config_file)
     with utils.curdir_tmpdir() as work_dir:
         dirs = {"work": work_dir, "config": os.path.dirname(config_file)}
-        with create_celeryconfig(task_module, dirs, config):
-            run_celeryd(work_dir)
+        with create_celeryconfig(task_module, dirs, config,
+                                 os.path.abspath(config_file)):
+            run_celeryd(work_dir, queues)
 
-def run_celeryd(work_dir):
+
+def run_celeryd(work_dir, queues):
     with utils.chdir(work_dir):
-        subprocess.check_call("celeryd")
+        cl = ["celeryd"]
+        if queues:
+            cl += ["-Q", queues]
+        subprocess.check_call(cl)
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    parser = optparse.OptionParser()
+    parser.add_option("-q", "--queues", dest="queues", action="store",
+                      default=None)
+    parser.add_option("-t", "--tasks", dest="task_module", action="store",
+                      default=None)
+    (options, args) = parser.parse_args()
+    if len(args) != 1:
+        print "Incorrect arguments"
+        print __doc__
+        sys.exit()
+    main(args[0], options.queues, options.task_module)

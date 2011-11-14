@@ -1,65 +1,47 @@
 #!/usr/bin/env python
 """Run an automated analysis pipeline in a distributed cluster architecture.
 
-Automate:
- - starting working nodes to process the data
- - kicking off an analysis
- - cleaning up nodes on finishing
-
-Currently works on LSF managed clusters but is written generally to work
-on other architectures.
-
 Usage:
   run_distributed_job.py <config_file> <fc_dir> [<run_info_yaml>]
+     -n <number of processes to start>
 """
 import sys
-import time
-import subprocess
+from optparse import OptionParser
 
 import yaml
 
-from bcbio.distributed import lsf
+from bcbio.pipeline.run_info import get_run_info
+from bcbio.distributed.manage import run_and_monitor
 from bcbio.pipeline.config_loader import load_config
 
-def main(config_file, fc_dir, run_info_yaml=None):
+def main(config_file, fc_dir, run_info_yaml=None, num_workers=None):
     config = load_config(config_file)
     assert config["algorithm"]["num_cores"] == "messaging", \
-           "Designed for use with messaging parallelization"
-    cluster = globals()[config["distributed"]["cluster_platform"]]
-    print "Starting cluster workers"
-    jobids = start_workers(cluster, config, config_file)
-    try:
-        print "Running analysis"
-        run_analysis(config_file, fc_dir, run_info_yaml, cluster, config)
-    finally:
-        print "Cleaning up cluster workers"
-        stop_workers(cluster, jobids)
-
-def start_workers(cluster, config, config_file):
-    args = config["distributed"]["platform_args"].split()
-    program_cl = [config["analysis"]["worker_program"], config_file]
-    jobids = [cluster.submit_job(args, program_cl)
-              for _ in range(config["distributed"]["num_workers"])]
-    while not(cluster.are_running(jobids)):
-        time.sleep(5)
-    return jobids
-
-def run_analysis(config_file, fc_dir, run_info_yaml, cluster, config):
-    args = config["distributed"]["platform_args"].split()
-    program_cl = [config["analysis"]["process_program"], config_file, fc_dir]
+           "Use this script only with configured 'messaging' parallelization"
+    if num_workers is None:
+        num_workers = _needed_workers(get_run_info(fc_dir, config, run_info_yaml)[-1])
+    task_module = "bcbio.distributed.tasks"
+    args = [config_file, fc_dir]
     if run_info_yaml:
-        program_cl.append(run_info_yaml)
-    jobid = cluster.submit_job(args, program_cl)
-    # wait for job to start
-    while not(cluster.are_running([jobid])):
-        time.sleep(5)
-    # wait for job to finish
-    while cluster.are_running([jobid]):
-        time.sleep(5)
+        args.append(run_info_yaml)
+    run_and_monitor(config, config_file, args, num_workers, task_module)
 
-def stop_workers(cluster, jobids):
-    for jobid in jobids:
-        cluster.stop_job(jobid)
+def _needed_workers(run_info):
+    """Determine workers needed to run multiplex flowcells in parallel.
+    """
+    names = []
+    for xs in run_info["details"]:
+        for x in xs:
+            names.append(lane.get("name", (lane["lane"], lane["barcode_id"])))
+    return len(set(names))
 
 if __name__ == "__main__":
-    main(*sys.argv[1:])
+    parser = OptionParser()
+    parser.add_option("-n", "--numworkers", dest="num_workers", default=None)
+    (options, args) = parser.parse_args()
+    if len(args) < 2:
+        print "Incorrect arguments"
+        print __doc__
+        sys.exit()
+    kwargs = {"num_workers": options.num_workers}
+    main(*args, **kwargs)
