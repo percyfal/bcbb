@@ -5,11 +5,13 @@ import os
 from bcbio.utils import curdir_tmpdir, file_exists
 from bcbio.distributed.transaction import file_transaction
 
-def picard_sort(picard, align_bam, sort_order="coordinate"):
+def picard_sort(picard, align_bam, sort_order="coordinate",
+                out_file=None):
     """Sort a BAM file by coordinates.
     """
     base, ext = os.path.splitext(align_bam)
-    out_file = "%s-sort%s" % (base, ext)
+    if out_file is None:
+        out_file = "%s-sort%s" % (base, ext)
     if not file_exists(out_file):
         with curdir_tmpdir() as tmp_dir:
             with file_transaction(out_file) as tx_out_file:
@@ -20,7 +22,8 @@ def picard_sort(picard, align_bam, sort_order="coordinate"):
                 picard.run("SortSam", opts)
     return out_file
 
-def picard_merge(picard, in_files, out_file=None):
+def picard_merge(picard, in_files, out_file=None,
+                 merge_seq_dicts=False):
     """Merge multiple BAM files together with Picard.
     """
     if out_file is None:
@@ -30,6 +33,8 @@ def picard_merge(picard, in_files, out_file=None):
             with file_transaction(out_file) as tx_out_file:
                 opts = [("OUTPUT", tx_out_file),
                         ("SORT_ORDER", "coordinate"),
+                        ("MERGE_SEQUENCE_DICTIONARIES",
+                         "true" if merge_seq_dicts else "false"),
                         ("TMP_DIR", tmp_dir)]
                 for in_file in in_files:
                     opts.append(("INPUT", in_file))
@@ -134,7 +139,7 @@ def picard_formatconverter(picard, align_sam):
                 picard.run("SamFormatConverter", opts)
     return out_bam
 
-def picard_mark_duplicates(picard, align_bam):
+def picard_mark_duplicates(picard, align_bam, remove_dups=False):
     base, ext = os.path.splitext(align_bam)
     base = base.replace(".", "-")
     dup_bam = "%s-dup%s" % (base, ext)
@@ -145,6 +150,7 @@ def picard_mark_duplicates(picard, align_bam):
                 opts = [("INPUT", align_bam),
                         ("OUTPUT", tx_dup_bam),
                         ("TMP_DIR", tmp_dir),
+                        ("REMOVE_DUPLICATES", "true" if remove_dups else "false"),
                         ("METRICS_FILE", tx_dup_metrics)]
                 picard.run("MarkDuplicates", opts)
     return dup_bam, dup_metrics

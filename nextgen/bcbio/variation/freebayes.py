@@ -11,11 +11,26 @@ from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
 from bcbio.variation import annotation, genotype
 from bcbio.log import logger
+from bcbio.pipeline.shared import subset_variant_regions
+
+def _freebayes_options_from_config(aconfig, out_file, region=None):
+    opts = []
+    opts += ["--ploidy", str(aconfig.get("ploidy", 2))]
+    variant_regions = aconfig.get("variant_regions", None)
+    target = subset_variant_regions(variant_regions, region, out_file)
+    if target:
+        opts += ["--region" if target == region else "--targets", target]
+    background = aconfig.get("call_background", None)
+    if background and os.path.exists(background):
+        opts += ["--variant-input", background]
+    return opts
 
 def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
                   out_file=None):
     """Detect small polymorphisms with FreeBayes.
     """
+    broad_runner = broad.runner_from_config(config)
+    broad_runner.run_fn("picard_index", align_bam)
     if out_file is None:
         out_file = "%s-variants.vcf" % os.path.splitext(align_bam)[0]
     if not file_exists(out_file):
@@ -23,9 +38,9 @@ def run_freebayes(align_bam, ref_file, config, dbsnp=None, region=None,
             region=region, fname=os.path.basename(align_bam)))
         with file_transaction(out_file) as tx_out_file:
             cl = [config["program"].get("freebayes", "freebayes"),
-                  "-b", align_bam, "-v", tx_out_file, "-f", ref_file]
-            if region:
-                cl.extend(["-r", region])
+                  "-b", align_bam, "-v", tx_out_file, "-f", ref_file,
+                  "--left-align-indels", "--use-mapping-quality"]
+            cl += _freebayes_options_from_config(config["algorithm"], out_file, region)
             subprocess.check_call(cl)
     return out_file
 

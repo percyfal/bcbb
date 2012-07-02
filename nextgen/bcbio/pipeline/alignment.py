@@ -3,6 +3,7 @@
 This works as part of the lane/flowcell process step of the pipeline.
 """
 import os
+import re
 from collections import namedtuple
 
 from Bio.SeqIO.QualityIO import FastqGeneralIterator
@@ -43,8 +44,17 @@ def align_to_sort_bam(fastq1, fastq2, genome_build, aligner,
                         rg_name=rg_name)
     if fastq2 is None and aligner in ["bwa", "bowtie2"]:
         fastq1 = _remove_read_number(fastq1, sam_file)
-    return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
-                           rg_name, lane_name, config)
+    sort_method = config["algorithm"].get("bam_sort", "coordinate")
+    if sort_method == "queryname":
+        return sam_to_querysort_bam(sam_file, config)
+    else:
+        # remove split information if present for platform unit
+        if re.search(r"_s\d+$", lane_name) is not None:
+            pu = lane_name.rsplit("_", 1)[0]
+        else:
+            pu = lane_name
+        return sam_to_sort_bam(sam_file, sam_ref, fastq1, fastq2, sample_name,
+                               rg_name, pu, config)
 
 def _remove_read_number(in_file, sam_file):
     """Work around problem with MergeBamAlignment with BWA and single end reads.
@@ -70,6 +80,15 @@ def _remove_read_number(in_file, sam_file):
                             name = name.rsplit("/", 1)[0]
                             out_handle.write("@%s\n%s\n+\n%s\n" % (name, seq, qual))
     return out_file
+
+def sam_to_querysort_bam(sam_file, config):
+    """Convert SAM file directly to a query sorted BAM without merging of FASTQ reads.
+
+    This allows merging of multiple mappers which do not work with MergeBamAlignment.
+    """
+    runner = broad.runner_from_config(config)
+    out_file = "{}.bam".format(os.path.splitext(sam_file)[0])
+    return runner.run_fn("picard_sort", sam_file, "queryname", out_file)
 
 def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
                     rg_name, lane_name, config):
@@ -103,11 +122,14 @@ def sam_to_sort_bam(sam_file, ref_file, fastq1, fastq2, sample_name,
 def get_genome_ref(genome_build, aligner, galaxy_base):
     """Retrieve the reference genome file location from galaxy configuration.
     """
-    if not aligner or not genome_build:
+    if not genome_build:
         return (None, None)
     ref_dir = os.path.join(galaxy_base, "tool-data")
     out_info = []
     for ref_get in [aligner, "samtools"]:
+        if not ref_get:
+            out_info.append(None)
+            continue
         ref_file = os.path.join(ref_dir, _tools[ref_get].galaxy_loc_file)
         cur_ref = None
         with open(ref_file) as in_handle:

@@ -82,6 +82,36 @@ def subset_bam_by_region(in_file, region, out_file_base = None):
                             out_bam.write(read)
     return out_file
 
+def subset_variant_regions(variant_regions, region, out_file):
+    """Return BED file subset by a specified chromosome region.
+
+    variant_regions is a BED file, region is a chromosome name.
+    """
+    if region is None:
+        return variant_regions
+    elif variant_regions is None:
+        return region
+    elif region.find(":") > 0:
+        raise ValueError("Partial chromosome regions not supported")
+    else:
+        # create an ordered subset file for processing
+        subset_file = "{0}-regions.bed".format(os.path.splitext(out_file)[0])
+        items = []
+        with open(variant_regions) as in_handle:
+            for line in in_handle:
+                if line.startswith(region) and line.split("\t")[0] == region:
+                    start = int(line.split("\t")[1])
+                    items.append((start, line))
+        if len(items) > 0:
+            if not os.path.exists(subset_file):
+                with open(subset_file, "w") as out_handle:
+                    items.sort()
+                    for _, line in items:
+                        out_handle.write(line)
+            return subset_file
+        else:
+            return region
+
 # ## Retrieving file information from configuration variables
 
 def configured_ref_file(name, config, sam_ref):

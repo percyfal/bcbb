@@ -16,7 +16,8 @@ from bcbio import broad
 from bcbio.utils import file_exists
 from bcbio.distributed.transaction import file_transaction
 from bcbio.distributed.split import parallel_split_combine
-from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file)
+from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file,
+                                   subset_variant_regions)
 from bcbio.variation.realign import has_aligned_reads
 
 # ## GATK Genotype calling
@@ -29,6 +30,7 @@ def unified_genotyper(align_bam, ref_file, config, dbsnp=None,
     broad_runner.run_fn("picard_index_ref", ref_file)
     broad_runner.run_fn("picard_index", align_bam)
     coverage_depth = config["algorithm"].get("coverage_depth", "high").lower()
+    variant_regions = config["algorithm"].get("variant_regions", None)
     if coverage_depth in ["low"]:
         confidence = "4.0"
     else:
@@ -56,8 +58,9 @@ def unified_genotyper(align_bam, ref_file, config, dbsnp=None,
                           ]
                 if dbsnp:
                     params += ["--dbsnp", dbsnp]
+                region = subset_variant_regions(variant_regions, region, tx_out_file)
                 if region:
-                    params += ["-L", region]
+                    params += ["-L", region, "--interval_set_rule", "INTERSECTION"]
                 broad_runner.run_gatk(params)
         else:
             with open(out_file, "w") as out_handle:
@@ -318,12 +321,12 @@ def _extract_eval_stats(eval_file):
 def _eval_analysis_type(in_file, analysis_name):
     """Retrieve data lines associated with a particular analysis.
     """
-    supported_versions = ["v0.2"]
+    supported_versions = ["v0.2", "v1.0"]
     with open(in_file) as in_handle:
         # read until we reach the analysis
         for line in in_handle:
-            if line.startswith("##:GATKReport"):
-                version = line.split()[0].split(".", 1)[-1]
+            if line.startswith(("##:GATKReport", "#:GATKReport")):
+                version = line.split()[0].split(".", 1)[-1].split(":")[0]
                 assert version in supported_versions, \
                        "Unexpected GATKReport version: {0}".format(version)
                 if line.find(analysis_name) > 0:

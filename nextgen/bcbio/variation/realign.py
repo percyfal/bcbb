@@ -12,12 +12,14 @@ from bcbio.utils import curdir_tmpdir, file_exists, save_diskspace
 from bcbio.distributed.transaction import file_transaction
 from bcbio.distributed.split import parallel_split_combine
 from bcbio.pipeline.shared import (split_bam_by_chromosome, configured_ref_file,
-                                   write_nochr_reads, subset_bam_by_region)
+                                   write_nochr_reads, subset_bam_by_region,
+                                   subset_variant_regions)
 
 # ## Realignment runners with GATK specific arguments
 
 def gatk_realigner_targets(runner, align_bam, ref_file, dbsnp=None,
-                           region=None, out_file=None, deep_coverage=False):
+                           region=None, out_file=None, deep_coverage=False,
+                           variant_regions=None):
     """Generate a list of interval regions for realignment around indels.
     """
     if out_file:
@@ -36,8 +38,9 @@ def gatk_realigner_targets(runner, align_bam, ref_file, dbsnp=None,
                       "-o", tx_out_file,
                       "-l", "INFO",
                       ]
+            region = subset_variant_regions(variant_regions, region, tx_out_file)
             if region:
-                params += ["-L", region]
+                params += ["-L", region, "--interval_set_rule", "INTERSECTION"]
             if dbsnp:
                 params += ["--known", dbsnp]
             if deep_coverage:
@@ -92,9 +95,11 @@ def gatk_realigner(align_bam, ref_file, config, dbsnp=None, region=None,
         align_bam = subset_bam_by_region(align_bam, region, out_file)
         runner.run_fn("picard_index", align_bam)
     if has_aligned_reads(align_bam, region):
+        variant_regions = config["algorithm"].get("variant_regions", None)
         realign_target_file = gatk_realigner_targets(runner, align_bam,
                                                      ref_file, dbsnp, region,
-                                                     out_file, deep_coverage)
+                                                     out_file, deep_coverage,
+                                                     variant_regions)
         realign_bam = gatk_indel_realignment(runner, align_bam, ref_file,
                                              realign_target_file, region,
                                              out_file, deep_coverage)
@@ -131,7 +136,8 @@ def parallel_realign_sample(sample_info, parallel_fn):
     to_process = []
     finished = []
     for x in sample_info:
-        if x[0]["config"]["algorithm"]["snpcall"]:
+        if (x[0]["config"]["algorithm"]["snpcall"] and
+            x[0]["config"]["algorithm"].get("realign", True)):
             to_process.append(x)
         else:
             finished.append(x)
@@ -151,7 +157,8 @@ def realign_sample(data, region=None, out_file=None):
     logger.info("Realigning %s with GATK: %s %s" % (data["name"],
                                                     os.path.basename(data["work_bam"]),
                                                     region))
-    if data["config"]["algorithm"]["snpcall"]:
+    if (data["config"]["algorithm"]["snpcall"] and
+        data["config"]["algorithm"].get("realign", True)):
         sam_ref = data["sam_ref"]
         config = data["config"]
         if region == "nochr":

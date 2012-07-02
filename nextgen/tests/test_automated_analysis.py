@@ -11,10 +11,12 @@ import collections
 
 @contextlib.contextmanager
 def make_workdir():
+    remove_old_dir = True
     dirname = os.path.join(os.path.dirname(__file__), "test_automated_output")
-    if os.path.exists(dirname):
-        shutil.rmtree(dirname)
-    os.makedirs(dirname)
+    if remove_old_dir:
+        if os.path.exists(dirname):
+            shutil.rmtree(dirname)
+        os.makedirs(dirname)
     orig_dir = os.getcwd()
     try:
         os.chdir(dirname)
@@ -33,7 +35,7 @@ class AutomatedAnalysisTest(unittest.TestCase):
         """
         DlInfo = collections.namedtuple("DlInfo", "fname dirname version")
         download_data = [DlInfo("110106_FC70BUKAAXX.tar.gz", None, None),
-                         DlInfo("genomes_automated_test.tar.gz", "genomes", 5),
+                         DlInfo("genomes_automated_test.tar.gz", "genomes", 6),
                          DlInfo("110907_ERP000591.tar.gz", None, None),
                          DlInfo("100326_FC6107FAAXX.tar.gz", None, 2)]
         for dl in download_data:
