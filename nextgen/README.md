@@ -28,6 +28,8 @@ researcher access and additional analysis. See the
 [o6]: http://cloudbiolinux.org
 [o7]: http://wiki.g2.bx.psu.edu/Admin/Cloud
 
+Current build status: [![Build Status](https://secure.travis-ci.org/SciLifeLab/bcbb.png)](http://travis-ci.org/SciLifeLab/bcbb)
+
 ## Code structure
 
 The main scripts that handle automation of the analysis and storage
@@ -78,35 +80,48 @@ Scripts involved in the processing:
 
 ## Installation
 
-### Required libraries and data files
+### Auto-installation
 
-The code drives a number of next-generation sequencing analysis
-tools; install these on any machines involved in the processing. The
-[CloudBioLinux][i2] and [Galaxy CloudMan][i3] projects contain
-automated scripts to help with installation:
+[Here](https://github.com/SciLifeLab/bcbio-nextgen-deploy) you can find a set of scripts to automatically download and set-up the pipeline.
+This set of scripts will pull the pipeline code and install on your system the pipeline and all the necessary requirements to have it working. Basically, there
+are three installation options available. First, download the scripts:
 
-* [Install bioinformatics software][i4]
-* Install data files like genome builds in association with
-  Galaxy: [my script][i5] and [from the Galaxy team][i6].
+        git clone https://github.com/SciLifeLab/bcbio-nextgen-deploy.git && cd bcbio-nextgen-deploy
 
-Or they can be install manually; the Requirements section below lists
-all software used by the pipeline.
+#### Installation in UPPMAX
 
-### Scripts and configuration
+After downloading the scripts in your UPPMAX account, the following command will install and configure the pipeline, 
+as well as run the standard test suite in a batch job:
 
-Clone a copy of the code from GitHub:
+        python deploy_non_root.py install
 
-      git clone https://github.com/chapmanb/bcbb.git
+To uninstall the pipeline from your account, execute:
 
-Use Python 2.7, and install with:
+        python deploy_non_root.py uninstall
 
-      cd bcbb/nextgen && python setup.py install
 
-The setup script installs required python library dependencies.
+#### Installation within a virtual machine
 
-Copy the YAML & ini files in config and adjust them to match your
-environment. It is also a good idea to set your $PATH pointing to
-any third-party binaries you are using.
+If you want to perform the installation within a virtual machine, you can do it executing:
+
+        fab -f deploy_on_vm.py install
+
+This will create a virtual machine, install the pipeline and run the tests. You need [vagrant](http://vagrantup.com) and 
+[python fabric](http://docs.fabfile.org/en/1.4.3/) to install the pipeline this way.
+
+#### Local installation
+
+To perform a local installation, execute the same command than installing in UPPMAX:
+
+        python deploy_non_root.py install
+
+The script will take care of installing the pipeline properly depending on the environment (UPPMAX or local).
+
+### Notes
+You don't need root access to install the pipeline or to run the tests with this scripts, as it is installed in a python virtual environment. However, to install
+the pipeline locally, we assume that you have installed all the pipeline requirements in your machine, otherwise you have to install them. Please refer to 
+the requirements section below. 
+
 
 ### Configuration
 
@@ -193,7 +208,7 @@ The test suite exercises the scripts driving the analysis, so
 are a good starting point to ensure correct installation.
 Run tests from the main code directory using [nose][i7]:
 
-      nosetest -v -s
+      nosetests -v -s
 
 `tests/test_automated_analysis.py` exercises the full framework using
 an automatically downloaded test dataset. It runs through barcode
@@ -210,6 +225,10 @@ configuration for the tests for your environment:
 * `tests/data/automated/run_info.yaml` -- Change the `analysis` variable
   can to 'Standard' if SNP calling is not required in your
   environment. This will run a smaller pipeline of alignment and analysis.
+
+To run the basic functionality test suite, which takes less time than the full test suite, use:
+
+        nosetests -v -s -a standard
 
 ### RabbitMQ messaging server
 
@@ -534,66 +553,6 @@ project and sample can be summarized and written to a spreadsheet named
 [project name]_sequencing results. The  spreadsheet will be tagged with the
 project name and placed under the folder specified via the
 'gdocs_projects_folder' configuration option.
-
-## Project based analyses 
-
-Grouping samples according to projects is inherent to core facility
-functionality. Customers apply for sequencing capacity for a set of
-samples, which are then run on one or several flowcells. Grouping is
-typically done according to a project id. Therefore, in order to
-facilitate analyses, a number of helper scripts are provided for
-setting up more project-oriented analyses, but at the same time
-leveraging as much power as possible from the analysis pipeline.
-
-### Report generation based on reStructured text
-
-Apart from the various pdf reports generated by the pipeline, there is
-some functionality for generating [reStructured text][ip1] (rst) based
-reports. The rst reports can then be transformed into various formats
-using the [sphinx documentation generation system][ip2]. The rst
-documents are generated from mako templates, making it easy to add
-python code for inclusion of custom results.
-
-Currently, there are a few scripts for report generation:
-
-* `scripts/project_fc_delivery_report.py` -- makes delivery reports
-  for all projects in a given flowcell
-
-
-### Setting up a project-based analysis directory
-
-In principle, it would be possible to run analyses on a subset of
-samples in a flowcell directory. However, it is often convenient to
-group data from different flowcells in project-based directories. 
-
-* `scripts/project_analysis_setup.py` -- copies or moves data from a
-  flowcell directory with demultiplexed data and possibly additional
-  results from automated_initial_analysis.py, to a project directory.
-  Demultiplexed fastq files or analysis result files can be selected.
-  Data selection is based on project descriptors.
-
-In addition, there are a couple of scripts for setting up a working
-environment that uses the [paver][ip3] python module:
-
-* `scripts/project_paver_init.py` -- installs a pavement file and sets
-  up various standard analysis directories, such as log and doc
-
-
-### Running the pipeline on a subset of demultiplexed samples
-
-The analysis pipelines typically take raw sequencing data, demultiplex
-it and do sequence alignment and variant calling. Therefore, they
-require information about raw data. If demultiplexing has already been
-performed and data has been setup for project based analysis, slightly
-modified scripts of the analysis pipeline scripts have to be used:
-
-* `scripts/project_exome_pipeline.py` -- performs the same analyses as
-  automated_initial_analysis.py, but starts with demultiplexed data
-
-
-[ip1]: http://docutils.sourceforge.net/rst.html
-[ip2]: http://sphinx.pocoo.org
-[ip3]: http://paver.github.com/paver/
 
 ## Getting v 0.3a working
 
